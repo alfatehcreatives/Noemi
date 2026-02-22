@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Noemi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sky-dark: #050510;
+            --sky-glow: #1a0b2e;
+            --accent-pink: #ff99cc;
+            --accent-purple: #b399ff;
+        }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: radial-gradient(circle at center, var(--sky-glow) 0%, var(--sky-dark) 100%);
+            font-family: 'Poppins', sans-serif;
+        }
+        canvas { display: block; position: absolute; top: 0; left: 0; }
+        #ui {
+            position: absolute; bottom: 10%; text-align: center; width: 100%;
+            pointer-events: none; z-index: 10;
+        }
+        .caption {
+            color: white; font-size: 1.1rem; letter-spacing: 4px; opacity: 0;
+            transition: opacity 4s ease; text-shadow: 0 0 20px var(--accent-pink);
+        }
+        .visible { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div id="ui"><p class="caption" id="caption">Written in the stars, forever mine.</p></div>
+    <canvas id="sky"></canvas>
+
+    <script>
+        const canvas = document.getElementById('sky');
+        const ctx = canvas.getContext('2d');
+        const caption = document.getElementById('caption');
+        
+        let width, height, stars = [], constel = [], heart = [];
+        let state = 'wait', startTime = Date.now();
+
+        // Optimized coordinates for NOEMI
+        const namePath = [
+            // N
+            [{x:25,y:55},{x:25,y:45},{x:32,y:55},{x:32,y:45}],
+            // O
+            [{x:36,y:50},{x:38,y:45},{x:42,y:45},{x:44,y:50},{x:42,y:55},{x:38,y:55},{x:36,y:50}],
+            // E
+            [{x:54,y:45},{x:48,y:45},{x:48,y:55},{x:54,y:55}], [{x:48,y:50},{x:52,y:50}],
+            // M
+            [{x:58,y:55},{x:58,y:45},{x:63,y:50},{x:68,y:45},{x:68,y:55}],
+            // I
+            [{x:72,y:45},{x:76,y:45}], [{x:74,y:45},{x:74,y:55}], [{x:72,y:55},{x:76,y:55}]
+        ];
+
+        const heartPath = [{x:50,y:35},{x:42,y:25},{x:32,y:30},{x:30,y:45},{x:50,y:75},{x:70,y:45},{x:68,y:30},{x:58,y:25},{x:50,y:35}];
+
+        class Star {
+            constructor(x, y, isFixed = false) {
+                this.reset(isFixed, x, y);
+            }
+            reset(isFixed, x, y) {
+                this.x = Math.random() * innerWidth;
+                this.y = Math.random() * innerHeight;
+                this.tx = x; this.ty = y;
+                this.size = Math.random() * (isFixed ? 2.8 : 1.5) + 0.5;
+                this.isFixed = isFixed;
+                this.alpha = Math.random();
+                this.v = Math.random() * 0.03 + 0.01;
+            }
+            draw() {
+                this.alpha += this.v;
+                let a = Math.abs(Math.sin(this.alpha));
+                ctx.fillStyle = this.isFixed ? `rgba(255,255,255,1)` : `rgba(255,255,255,${a * 0.4})`;
+                
+                if(this.isFixed && state !== 'wait') {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = Math.random() > 0.5 ? "var(--accent-pink)" : "white";
+                    const dx = (this.tx * width / 100) - this.x;
+                    const dy = (this.ty * height / 100) - this.y;
+                    this.x += dx * 0.03;
+                    this.y += dy * 0.03;
+                }
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            stars = Array.from({length: 300}, () => new Star());
+            constel = namePath.flat().map(p => new Star(p.x, p.y, true));
+            heart = heartPath.map(p => new Star(p.x, p.y, true));
+        }
+
+        function drawLines(pts, opacity, segments) {
+            ctx.strokeStyle = `rgba(179, 153, 255, ${opacity})`;
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = "white";
+            segments.forEach(segment => {
+                ctx.beginPath();
+                segment.forEach((p, i) => {
+                    const sx = constel.find(s => s.tx === p.x && s.ty === p.y);
+                    if(i === 0) ctx.moveTo(sx.x, sx.y);
+                    else ctx.lineTo(sx.x, sx.y);
+                });
+                ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function animate() {
+            ctx.clearRect(0,0,width,height);
+            const elapsed = Date.now() - startTime;
+            
+            if(elapsed > 3000 && state === 'wait') state = 'name';
+            if(elapsed > 10000 && state === 'name') { state = 'heart'; caption.classList.add('visible'); }
+
+            stars.forEach(s => s.draw());
+            
+            if(state === 'name' || state === 'heart') {
+                constel.forEach(s => s.draw());
+                drawLines(constel, Math.min(0.4, (elapsed-3000)/5000), namePath);
+            }
+            
+            if(state === 'heart') {
+                heart.forEach(s => s.draw());
+                ctx.beginPath();
+                const heartAlpha = Math.abs(Math.sin(Date.now()/1500) * 0.5);
+                ctx.strokeStyle = `rgba(255, 153, 204, ${heartAlpha})`;
+                ctx.lineWidth = 2.5;
+                heart.forEach((s, i) => {
+                    if(i === 0) ctx.moveTo(s.x, s.y);
+                    else ctx.lineTo(s.x, s.y);
+                });
+                ctx.stroke();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        init(); animate();
+    </script>
+</body>
+</html>
+
+              
